@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Student Attendance System by Face Scanning | Sharnbasava University</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Official Sharnbasava University Rectangle Title Banner (Natural Scroll / Non-Sticky) -->
+  <header class="college-header-container">
+    <div class="banner-wrapper">
+      <img src="logo.png" alt="Sharnbasva University Title Banner" class="college-full-banner">
+    </div>
+    <div class="department-subbar">
+      <div class="dept-text">
+        <h2>SHARNBASAVA UNIVERSITY • Faculty of Engineering &amp; Technology</h2>
+        <p>Department of Computer Science &amp; Engineering | Kalaburagi, Karnataka, India</p>
+      </div>
+      <div class="header-badges">
+        <button class="btn-settings-icon" title="Open Settings" onclick="openSettingsModal()">⚙️</button>
+        <span class="tag-academic">2nd Sem College Project</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Period Navigation Bar (Click Any Period to View Present/Absent List) -->
+  <div class="main-container" style="padding-bottom:0;">
+    <div class="period-control-bar">
+      <div class="period-header-info">
+        <div class="session-info">
+          <span id="periodSubjectLabel">Active Class &amp; Faculty:</span>
+          <span id="periodDetailText">Period 1: Data Structures &amp; Algorithms — Prof. Raghavendra Joshi</span>
+        </div>
+      </div>
+
+      <!-- Clickable Period Sequence Badges -->
+      <div class="period-pills-row" id="periodPillsContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="period-nav-buttons">
+        <button class="btn btn-secondary btn-sm" id="prevPeriodBtn" onclick="prevPeriod()" disabled>⬅ Prev</button>
+        <button class="btn btn-primary btn-sm" id="nextPeriodBtn" onclick="nextPeriod()">Next ➔</button>
+        <button class="btn btn-success btn-sm" onclick="finalizeAndSubmitPeriod()">✅ Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('scanner')">📸 Live Face Scanner Terminal</button>
+    <button class="nav-tab" onclick="switchTab('report')">📋 Present &amp; Absent List (<span id="tabPeriodTitle">Period 1</span>)</button>
+    <button class="nav-tab" onclick="switchTab('students')">👥 Student Directory (<span id="tabStudentCount">0</span>)</button>
+    <button class="nav-tab" onclick="switchTab('timetable')">📅 Timetable &amp; Breaks</button>
+    <button class="nav-tab" onclick="switchTab('project')">ℹ️ Project &amp; Team Details</button>
+  </nav>
+
+  <!-- Main Workspace Container -->
+  <main class="main-container">
+
+    <!-- TAB 1: Live Face Scanner Terminal -->
+    <div id="tab-scanner" class="tab-content active">
+      <div class="scanner-layout">
+        
+        <!-- Left: Live Scanner Screen & Controls -->
+        <div class="scanner-card">
+          <!-- Terminal Control Header -->
+          <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:#0f172a; padding:12px; border-radius:8px; border:1px solid var(--border); flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="camStatusDot" style="width:10px; height:10px; border-radius:50%; background:#ef4444; display:inline-block;"></span>
+              <span style="font-weight:700; color:var(--accent); font-size:0.9rem;" id="camStatusText">CAMERA OFF (SCANNER INACTIVE)</span>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" id="camFlipBtn" onclick="switchCamera()" title="Switch between Front and Back camera (Mobile)">🔄 Flip Camera</button>
+              <button class="btn btn-primary btn-sm" onclick="openAddStudentModal()">➕ Add Student</button>
+              <button class="btn btn-success btn-sm" id="camToggleBtn" onclick="toggleCamera()">📹 Turn ON Camera</button>
+            </div>
+          </div>
+
+          <!-- Video & Canvas Viewport -->
+          <div class="scanner-screen" id="scannerScreen">
+            <div class="camera-offline-msg" id="cameraOfflineMsg">
+              <span style="font-size:3rem; opacity:0.6;">📷</span>
+              <strong style="color:#e2e8f0; font-size:1.05rem;">Face Scanner is Inactive</strong>
+              <p style="font-size:0.82rem; max-width:320px;">The scanner is not active when camera is off. Click <strong>Turn ON Camera</strong> above to begin scanning faces.</p>
+            </div>
+            <video id="cameraVideo" autoplay playsinline></video>
+            <canvas id="scannerCanvas" width="500" height="380"></canvas>
+            <div class="scanner-laser" id="scannerLaser"></div>
+            <div class="reticle-box" id="reticleBox"></div>
+          </div>
+
+          <!-- Live Scan Action Bar -->
+          <div style="width:100%; margin-top:16px; display:flex; gap:10px;">
+            <button class="btn btn-success" id="scanFaceBtn" style="flex:1; padding:12px; font-size:1rem; font-weight:bold;" onclick="scanFaceForAttendance()" disabled>
+              📸 Scan Face for Attendance
+            </button>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+            *Positions face inside the reticle frame. Only added student faces will be recognized.
+          </p>
+        </div>
+
+        <!-- Right: Real-Time Verified Student Dossier -->
+        <div class="verified-panel">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <h3 style="font-size:1rem; color:var(--accent);">REAL-TIME VERIFICATION FEED</h3>
+            <span style="font-size:0.75rem; color:#38bdf8;" id="livePeriodStatus">Period 1 Active</span>
+          </div>
+
+          <div id="verifiedResultContainer">
+            <div class="match-result-card" id="matchCardPlaceholder">
+              <div style="text-align:center; width:100%; padding:30px 15px; color:var(--text-muted);">
+                <span style="font-size:2.8rem; display:block; margin-bottom:8px;">👤</span>
+                <strong style="color:#cbd5e1; display:block; margin-bottom:4px;">Ready to Scan Face</strong>
+                Turn on the camera and click <strong>Scan Face for Attendance</strong>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Summary Card -->
+          <div style="background:#0f172a; padding:16px; border-radius:8px; border:1px solid var(--surface-light); margin-top:auto;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:8px;">
+              <span>Current Period Attendance:</span>
+              <strong style="color:var(--accent);" id="liveAttendanceCount">0 / 0 Present (0%)</strong>
+            </div>
+            <div style="height:10px; background:#334155; border-radius:5px; overflow:hidden;">
+              <div id="liveProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg, #10b981, #d4af37); transition:width 0.4s;"></div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-secondary" style="flex:1;" onclick="switchTab('report')">
+              📋 View Full Present / Absent List
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: Present & Absent Report for Selected Period -->
+    <div id="tab-report" class="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2>📊 Attendance Report — <span id="reportPeriodTitle">Period 1</span></h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Subject: <strong id="reportSubjectTitle">Data Structures &amp; Algorithms</strong> | Faculty: <strong id="reportFacultyTitle">Prof. Raghavendra Joshi</strong></p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-primary btn-sm" onclick="startNewAttendanceSession()">🔄 Start New Attendance</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportAttendanceCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Print Report</button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div>
+            <div class="stat-val" id="statTotalStudents">0</div>
+            <div class="stat-lbl">Total Enrolled</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#34d399;">✅</div>
+          <div>
+            <div class="stat-val" id="statPresentCount" style="color:#34d399;">0</div>
+            <div class="stat-lbl">Present</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#f87171;">❌</div>
+          <div>
+            <div class="stat-val" id="statAbsentCount" style="color:#f87171;">0</div>
+            <div class="stat-lbl">Absent</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--accent);">📈</div>
+          <div>
+            <div class="stat-val" id="statAttendancePct">0%</div>
+            <div class="stat-lbl">Attendance Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side-by-Side Tables (Present vs Absent with Toggles) -->
+      <div class="tables-split">
+        <div class="table-container">
+          <div style="padding:12px 16px; background:#064e3b; border-bottom:1px solid #047857; display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:#34d399;">✅ PRESENT STUDENTS (<span id="presentBadgeCount">0</span>)</strong>
+            <span style="font-size:0.75rem; color:#a7f3d0;">Click student for full details</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Face</th>
+                <th>USN</th>
+                <th>Name</th>
+                <th>Scan Time</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="presentTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="table-container">
+          <div style="padding:12px 16px; background:#7f1d1d; border-bottom:1px solid #991b1b; display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:#f87171;">❌ ABSENT STUDENTS (<span id="absentBadgeCount">0</span>)</strong>
+            <span style="font-size:0.75rem; color:#fecaca;">Click student for full details</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Face</th>
+                <th>USN</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Toggle Present</th>
+              </tr>
+            </thead>
+            <tbody id="absentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: Enrolled Students Directory (Starts Empty) -->
+    <div id="tab-students" class="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2>👥 Enrolled Student Faces Database</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Database starts empty. Click student to view attendance percentage and profile.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddStudentModal()">➕ Add Student (Camera Scan)</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Captured Face</th>
+              <th>USN</th>
+              <th>Full Name</th>
+              <th>Semester &amp; Section</th>
+              <th>Department</th>
+              <th>Attendance %</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="studentDirectoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: Timetable & Schedule -->
+    <div id="tab-timetable" class="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+          <h2>📅 Period Schedule &amp; Timetable</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Includes Short Break and Lunch Break periods.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openAddPeriodModal()">➕ Add Extra Period</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Period #</th>
+              <th>Type</th>
+              <th>Subject Name</th>
+              <th>Assigned Faculty</th>
+              <th>Attendance Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="timetableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 5: Project & Team Details -->
+    <div id="tab-project" class="tab-content">
+      <div style="margin-bottom:20px;">
+        <h2>ℹ️ Project &amp; Academic Architecture Details</h2>
+        <p style="font-size:0.85rem; color:var(--text-muted);">Academic project specifications, biometric algorithms, and team member details.</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <div class="card">
+          <h3 style="color:var(--accent); margin-bottom:10px;">1. Project Overview &amp; Objective</h3>
+          <p style="font-size:0.9rem; line-height:1.6; color:#cbd5e1;">
+            The <strong>Smart Student Attendance System by Face Scanning</strong> automates university lecture roll calls using computer vision. Traditional manual paper registers take 10–15 minutes of lecture time and suffer from student proxy attendance. This system captures live student face frames, extracts biometric landmark vectors, and matches them strictly against registered student faces.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="color:var(--accent); margin-bottom:10px;">2. Anti-Proxy Security &amp; Features</h3>
+          <ul style="margin-left:20px; font-size:0.88rem; line-height:1.8; color:#cbd5e1;">
+            <li><strong>Strict Database Verification</strong>: Only faces previously enrolled via camera are verified. Any non-enrolled face triggers <em>"❌ Face Not Saved in Database"</em>.</li>
+            <li><strong>Anti-Proxy Duplicate Detection</strong>: Scanning an already-present student immediately triggers <em>"⚠️ Face Already Scanned"</em>.</li>
+            <li><strong>Sequential Periods &amp; Breaks</strong>: Period-by-period progression with automatic faculty updates and pause during Short Break and Lunch Break.</li>
+            <li><strong>Mobile-Friendly Camera Flip</strong>: Switch between front and back camera on mobile phones and tablets.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sharnbasava University Team & USN Section (user:college-project-header) -->
+    <section class="team-section">
+      <h3>Project Team Members (Department of Computer Science &amp; Engineering)</h3>
+      <ul class="team-list">
+        <li>
+          <div>
+            <strong>Harish Biradar</strong>
+            <div style="font-size:0.75rem; color:#94a3b8;">Team Member • Core Algorithmic Lead</div>
+          </div>
+          <span class="usn-pill">SG25CSE050</span>
+        </li>
+        <li>
+          <div>
+            <strong>Kartik V</strong>
+            <div style="font-size:0.75rem; color:#94a3b8;">Team Member • Biometric Slicing &amp; DB Lead</div>
+          </div>
+          <span class="usn-pill">SG25CSE057</span>
+        </li>
+        <li>
+          <div>
+            <strong>Adarsh R Patil</strong>
+            <div style="font-size:0.75rem; color:#94a3b8;">Team Member • UI/UX &amp; Live Scanner Architect</div>
+          </div>
+          <span class="usn-pill">SG25CSE007</span>
+        </li>
+        <li>
+          <div>
+            <strong>Akash S Patil</strong>
+            <div style="font-size:0.75rem; color:#94a3b8;">Team Member • Security, Testing &amp; Anti-Proxy QA</div>
+          </div>
+          <span class="usn-pill">SG25CSE016</span>
+        </li>
+      </ul>
+      <div style="margin-top:14px; font-size:0.8rem; color:#94a3b8; text-align:right;">
+        Academic Guide: Dept. of CSE | Sharnbasava University, Kalaburagi-585103
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: ADD STUDENT (PURE LIVE CAMERA FACE CAPTURE) -->
+  <div class="modal-overlay" id="addStudentModal">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="color:var(--accent);">➕ Add Student (Camera Face Capture)</h3>
+        <button onclick="closeAddStudentModal()" style="background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer;">&times;</button>
+      </div>
+      
+      <form onsubmit="handleSaveStudent(event)">
+        <div class="form-group">
+          <label>Full Name:</label>
+          <input type="text" id="regName" class="form-control" required placeholder="e.g. Harish Biradar">
+        </div>
+        <div class="form-group">
+          <label>University Seat Number (USN):</label>
+          <input type="text" id="regUsn" class="form-control" required placeholder="e.g. SG25CSE050">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label>Semester:</label>
+            <input type="number" id="regSem" class="form-control" value="2" required>
+          </div>
+          <div class="form-group">
+            <label>Section:</label>
+            <input type="text" id="regSec" class="form-control" value="A" required>
+          </div>
+        </div>
+
+        <div class="form-group" style="text-align:center;">
+          <label>Live Camera Face Capture (Look at Camera):</label>
+          <div style="width:100%; height:220px; background:#000; border-radius:8px; overflow:hidden; position:relative; border:2px solid var(--accent); display:flex; align-items:center; justify-content:center;">
+            <video id="enrollVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none;"></video>
+            <canvas id="enrollCanvas" width="240" height="220" style="display:none;"></canvas>
+            <div id="enrollPreview" style="width:100%; height:100%; display:none; align-items:center; justify-content:center;">
+              <img id="enrollSnapshotImg" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <div id="enrollNoCamText" style="color:var(--text-muted); font-size:0.85rem; padding:15px;">
+              Camera feed will start when adding. Look straight into lens.
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="startEnrollCamera()">📹 Turn ON Camera</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchEnrollCamera()">🔄 Flip Camera</button>
+            <button type="button" class="btn btn-blue btn-sm" id="captureFaceBtn" onclick="captureEnrollFace()" disabled>📸 Capture Face</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="retakeFaceBtn" onclick="retakeEnrollFace()" style="display:none;">🔄 Retake</button>
+          </div>
+          <input type="hidden" id="capturedFaceDataUrl">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+          <button type="button" class="btn btn-secondary" onclick="closeAddStudentModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveStudentBtn" disabled>💾 Save Student &amp; Face</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: STUDENT DETAILS (CURVED-EDGE PROFILE CARD WITH ATTENDANCE %) -->
+  <div class="modal-overlay" id="studentDetailModal">
+    <div class="modal-box student-profile-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #334155; padding-bottom:10px;">
+        <span style="font-weight:700; color:var(--accent); font-size:1.05rem;">👤 Student Academic &amp; Attendance Profile</span>
+        <button onclick="closeStudentDetailModal()" style="background:none; border:none; color:#cbd5e1; font-size:1.3rem; cursor:pointer;" title="Close">✖</button>
+      </div>
+
+      <div style="display:flex; gap:18px; align-items:center; margin-bottom:16px;">
+        <div style="width:90px; height:108px; border-radius:8px; overflow:hidden; border:2px solid var(--accent); background:#0f172a; flex-shrink:0;">
+          <img id="detailStudentImg" style="width:100%; height:100%; object-fit:cover;">
+        </div>
+        <div style="flex:1;">
+          <h3 id="detailStudentName" style="color:#ffffff; font-size:1.25rem;">Student Name</h3>
+          <p style="color:var(--accent); font-family:monospace; font-weight:700; margin:2px 0;" id="detailStudentUsn">SG25CSE000</p>
+          <p style="font-size:0.8rem; color:#94a3b8;" id="detailStudentDept">CSE • 2nd Semester, Sec A</p>
+          <div style="margin-top:6px;" id="detailEligibilityBadge">
+            <span class="badge-present">✅ Eligible (≥75%)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Percentage Stat Cards -->
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px;">
+        <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+          <span style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase;">Attendance Rate</span>
+          <div id="detailStudentPct" style="font-size:1.3rem; font-weight:800; color:var(--accent);">0%</div>
+        </div>
+        <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+          <span style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase;">Periods Present</span>
+          <div id="detailStudentPresentCount" style="font-size:1.3rem; font-weight:800; color:#34d399;">0</div>
+        </div>
+        <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+          <span style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase;">Periods Absent</span>
+          <div id="detailStudentAbsentCount" style="font-size:1.3rem; font-weight:800; color:#f87171;">0</div>
+        </div>
+      </div>
+
+      <!-- Period-by-Period Status for Today -->
+      <h4 style="font-size:0.82rem; color:#38bdf8; text-transform:uppercase; margin-bottom:8px;">Period-by-Period Attendance Today:</h4>
+      <div id="detailPeriodList" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; font-size:0.8rem;">
+        <!-- Injected by JS -->
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+        <button class="btn btn-secondary btn-sm" onclick="closeStudentDetailModal()">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SETTINGS (CURVED-EDGE PANELS WITH NAVIGATION & SUB-VIEWS) -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box" id="settingsMainBox">
+      <!-- Settings Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #334155; padding-bottom:10px;">
+        <h3 style="color:var(--accent); display:flex; align-items:center; gap:8px;">⚙️ Attendance System Settings</h3>
+        <button onclick="closeSettingsModal()" style="background:none; border:none; color:#cbd5e1; font-size:1.3rem; cursor:pointer;" title="Close Settings">✖</button>
+      </div>
+
+      <!-- Main Settings Menu Grid -->
+      <div class="settings-grid" id="settingsMenuGrid">
+        <div class="setting-item-card" onclick="showSettingsSubView('history')">
+          <span style="font-size:1.6rem;">📊</span>
+          <div>
+            <strong>Attendance History</strong>
+            <p>View past class sessions, dates, and archived attendance logs.</p>
+          </div>
+        </div>
+
+        <div class="setting-item-card" onclick="showSettingsSubView('students')">
+          <span style="font-size:1.6rem;">👥</span>
+          <div>
+            <strong>Student Directory &amp; Details</strong>
+            <p>Manage enrolled students, add new faces, or delete records.</p>
+          </div>
+        </div>
+
+        <div class="setting-item-card" onclick="showSettingsSubView('period')">
+          <span style="font-size:1.6rem;">👨‍🏫</span>
+          <div>
+            <strong>Period &amp; Faculty Settings</strong>
+            <p>Edit faculty names, subjects, and period configurations.</p>
+          </div>
+        </div>
+
+        <div class="setting-item-card" onclick="showSettingsSubView('addPeriod')">
+          <span style="font-size:1.6rem;">➕</span>
+          <div>
+            <strong>Add Extra Period</strong>
+            <p>Create Period 6, lab sessions, or tutorial slots.</p>
+          </div>
+        </div>
+
+        <div class="setting-item-card" onclick="showSettingsSubView('scanner')">
+          <span style="font-size:1.6rem;">🎯</span>
+          <div>
+            <strong>Face Scanner Options</strong>
+            <p>Modify face recognition sensitivity, audio chimes, and thresholds.</p>
+          </div>
+        </div>
+
+        <div class="setting-item-card" onclick="startNewAttendanceSession(); closeSettingsModal();">
+          <span style="font-size:1.6rem;">🔄</span>
+          <div>
+            <strong>Start New Attendance Session</strong>
+            <p>Archive current day/session into History and start a fresh class session.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-View: Attendance History -->
+      <div id="subViewHistory" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h4 style="color:#38bdf8;">📊 Archived Attendance History</h4>
+          <button class="btn btn-secondary btn-sm" onclick="hideSettingsSubView()">← Back to Settings</button>
+        </div>
+        <div style="max-height:280px; overflow-y:auto;" class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date / Time</th>
+                <th>Period</th>
+                <th>Subject</th>
+                <th>Present</th>
+                <th>Rate %</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+          <button class="btn btn-danger btn-sm" onclick="clearAttendanceHistory()">Clear History</button>
+        </div>
+      </div>
+
+      <!-- Sub-View: Period & Faculty Settings -->
+      <div id="subViewPeriod" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h4 style="color:#38bdf8;">👨‍🏫 Edit Period &amp; Faculty Names</h4>
+          <button class="btn btn-secondary btn-sm" onclick="hideSettingsSubView()">← Back to Settings</button>
+        </div>
+        <div class="form-group">
+          <label>Select Period to Edit:</label>
+          <select id="editPeriodSelect" class="form-control" onchange="loadPeriodToEdit()"></select>
+        </div>
+        <div class="form-group">
+          <label>Subject Name:</label>
+          <input type="text" id="editPeriodSubject" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Assigned Faculty Name:</label>
+          <input type="text" id="editPeriodFaculty" class="form-control">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="savePeriodEdit()">💾 Save Period Info</button>
+      </div>
+
+      <!-- Sub-View: Add Extra Period -->
+      <div id="subViewAddPeriod" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h4 style="color:#38bdf8;">➕ Add Extra Period / Lab Session</h4>
+          <button class="btn btn-secondary btn-sm" onclick="hideSettingsSubView()">← Back to Settings</button>
+        </div>
+        <div class="form-group">
+          <label>Period Label:</label>
+          <input type="text" id="newPeriodName" class="form-control" placeholder="e.g. Period 6 or DSA Lab">
+        </div>
+        <div class="form-group">
+          <label>Period Type:</label>
+          <select id="newPeriodType" class="form-control">
+            <option value="class">Regular Class</option>
+            <option value="break">Break (Attendance Paused)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Subject Name:</label>
+          <input type="text" id="newPeriodSubject" class="form-control" placeholder="e.g. Practical Lab 1">
+        </div>
+        <div class="form-group">
+          <label>Assigned Faculty:</label>
+          <input type="text" id="newPeriodFaculty" class="form-control" placeholder="e.g. Prof. Anand Patil">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="handleSaveExtraPeriod()">➕ Add to Schedule</button>
+      </div>
+
+      <!-- Sub-View: Scanner Options -->
+      <div id="subViewScanner" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h4 style="color:#38bdf8;">🎯 Face Recognition &amp; Scanner Settings</h4>
+          <button class="btn btn-secondary btn-sm" onclick="hideSettingsSubView()">← Back to Settings</button>
+        </div>
+        <div class="form-group">
+          <label>Recognition Confidence Threshold: <span id="sensVal">78%</span></label>
+          <input type="range" min="65" max="90" value="78" class="form-control" id="sensSlider" oninput="updateSensitivity()">
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">*Higher threshold prevents false matches; lower threshold is more forgiving.</p>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="audioChimeCheck" checked> Play Sound Feedback on Verification / Duplicate</label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Box -->
+  <div class="toast" id="toastBox">
+    <span id="toastIcon">✅</span>
+    <span id="toastMsg">Action completed successfully!</span>
+  </div>
+
+  <!-- Embedded JavaScript Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
